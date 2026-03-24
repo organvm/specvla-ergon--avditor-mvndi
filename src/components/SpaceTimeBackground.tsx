@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef } from "react";
 
 /**
  * STARGATE CORRIDOR
@@ -160,21 +160,24 @@ export default function SpaceTimeBackground() {
   const programRef = useRef<WebGLProgram | null>(null);
   const animFrameRef = useRef<number>(0);
   const startTimeRef = useRef<number>(Date.now());
-  const [orientation, setOrientation] = useState({ x: 0, y: 0 });
+  const orientationRef = useRef({ x: 0, y: 0 });
   const speedRef = useRef(1.0);
 
-  // Device orientation listener
+  // Device orientation listener — writes to ref so WebGL effect doesn't re-init
   useEffect(() => {
+    // Guard: DeviceOrientationEvent may not exist on older desktops
+    if (typeof DeviceOrientationEvent === "undefined") return;
+
     const handleOrientation = (e: DeviceOrientationEvent) => {
-      const x = (e.gamma || 0) / 90; // -1 to 1 (tilt left/right)
-      const y = (e.beta || 0) / 180;  // -1 to 1 (tilt forward/back)
-      setOrientation({ x, y });
+      orientationRef.current = {
+        x: (e.gamma || 0) / 90,  // -1 to 1 (tilt left/right)
+        y: (e.beta || 0) / 180,  // -1 to 1 (tilt forward/back)
+      };
     };
 
-    // Try to get permission on iOS 13+
     const doe = DeviceOrientationEvent as unknown as { requestPermission?: () => Promise<string> };
     if (doe.requestPermission) {
-      // Will be triggered by user gesture later
+      // iOS 13+ requires permission via user gesture — not handled in this version
     } else {
       window.addEventListener("deviceorientation", handleOrientation);
     }
@@ -275,7 +278,7 @@ export default function SpaceTimeBackground() {
       const elapsed = (Date.now() - startTimeRef.current) / 1000;
       gl.uniform1f(uTime, elapsed);
       gl.uniform2f(uResolution, canvas.width, canvas.height);
-      gl.uniform2f(uOffset, orientation.x, orientation.y);
+      gl.uniform2f(uOffset, orientationRef.current.x, orientationRef.current.y);
       gl.uniform1f(uHueShift, hueShift);
       gl.uniform1f(uSpeed, speedRef.current);
 
@@ -288,8 +291,14 @@ export default function SpaceTimeBackground() {
     return () => {
       cancelAnimationFrame(animFrameRef.current);
       window.removeEventListener("resize", resize);
+      // Free WebGL resources to prevent GPU memory leaks
+      gl.deleteProgram(program);
+      gl.deleteShader(vertShader);
+      gl.deleteShader(fragShader);
+      gl.deleteBuffer(buffer);
     };
-  }, [orientation]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <canvas

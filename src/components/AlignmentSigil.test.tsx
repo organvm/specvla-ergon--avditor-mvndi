@@ -3,7 +3,7 @@ import { describe, it, expect, vi } from "vitest";
 import AlignmentSigil from "./AlignmentSigil";
 
 // p5 runs a canvas-based animation loop — mock it entirely so jsdom doesn't choke
-vi.mock("p5", () => {
+vi.mock("./loadP5", () => {
   class MockP5 {
     constructor(_sketch: unknown, container: HTMLElement) {
       // Simulate p5 attaching a canvas to the container
@@ -15,7 +15,7 @@ vi.mock("p5", () => {
     }
     remove() {}
   }
-  return { default: MockP5 };
+  return { loadP5: async () => MockP5 };
 });
 
 const defaultScores = {
@@ -53,10 +53,9 @@ describe("AlignmentSigil", () => {
     expect(screen.getByText("Alignment Sigil")).toBeInTheDocument();
   });
 
-  it("p5 canvas is attached to container", () => {
-    const { container } = render(<AlignmentSigil scores={defaultScores} />);
+  it("p5 canvas is attached to container", async () => {
+    render(<AlignmentSigil scores={defaultScores} />);
     // The mock p5 constructor attaches a canvas element
-    const canvas = container.querySelector("canvas");
-    expect(canvas).toBeInTheDocument();
+    expect(await screen.findByTestId("p5-canvas")).toBeInTheDocument();
   });
 });

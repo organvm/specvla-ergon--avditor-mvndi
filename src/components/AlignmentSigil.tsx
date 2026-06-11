@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useEffect, useRef } from "react";
-import p5 from "p5";
+import type p5 from "p5";
+import { loadP5 } from "./loadP5";
 
 interface AlignmentSigilProps {
   scores: {
@@ -17,6 +18,8 @@ export default function AlignmentSigil({ scores }: AlignmentSigilProps) {
 
   useEffect(() => {
     if (!containerRef.current) return;
+    let p5Instance: p5 | undefined;
+    let disposed = false;
 
     const sketch = (p: p5) => {
       let angle = 0;
@@ -93,10 +96,14 @@ export default function AlignmentSigil({ scores }: AlignmentSigilProps) {
       };
     };
 
-    const p5Instance = new p5(sketch, containerRef.current);
+    void loadP5().then((P5) => {
+      if (disposed || !containerRef.current) return;
+      p5Instance = new P5(sketch, containerRef.current);
+    });
 
     return () => {
-      p5Instance.remove();
+      disposed = true;
+      p5Instance?.remove();
     };
   }, [scores]);
 

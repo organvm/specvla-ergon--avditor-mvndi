@@ -63,6 +63,20 @@ describe("API Route /api/audit/stream", () => {
     expect(response.status).toBe(400);
   });
 
+  it("returns 400 if request JSON is empty or malformed", async () => {
+    const request = new Request("http://localhost/api/audit/stream", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer valid-key", // allow-secret
+        "Content-Type": "application/json",
+      },
+    });
+
+    const response = await POST(request);
+    expect(response.status).toBe(400);
+    expect(mockStreamText).not.toHaveBeenCalled();
+  });
+
   it("returns a streaming response for valid input", async () => {
     const request = new Request("http://localhost/api/audit/stream", {
       method: "POST",

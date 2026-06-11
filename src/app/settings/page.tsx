@@ -96,7 +96,9 @@ export default function SettingsPage() {
     const storedKey = getStoredApiKey(storedProvider) || "";
     setProvider(storedProvider);
     setApiKey(storedKey);
+  }, []);
 
+  useEffect(() => {
     if (session?.user?.email) {
       fetch("/api/settings/branding")
         .then(res => res.json())
@@ -106,7 +108,7 @@ export default function SettingsPage() {
         .catch(() => {});
     }
     fetchIntegrations();
-  }, [session, fetchIntegrations]);
+  }, [session?.user?.email, fetchIntegrations]);
 
   const handleProviderChange = (newProvider: AIProvider) => {
     setProvider(newProvider);

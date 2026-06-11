@@ -13,7 +13,7 @@ export const metadata: Metadata = {
     template: "%s | Avditor Mvndi",
   },
   description: "Decode your digital bottlenecks and align your business strategy with data-driven, cosmic growth audits powered by AI.",
-  metadataBase: new URL(process.env.NEXT_PUBLIC_BASE_URL || "https://specvla-ergon--avditor-mvndi.vercel.app"),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_BASE_URL || "https://specvla-ergon-avditor-mvndi.vercel.app"),
   openGraph: {
     title: "Avditor Mvndi",
     description: "AI-powered cosmic growth audits for your digital presence.",

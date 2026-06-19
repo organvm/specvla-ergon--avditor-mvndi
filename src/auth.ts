@@ -60,7 +60,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           const db = await import("./lib/db");
           const sub = await db.getSubscription(email as string);
           token.isPro = sub?.plan === "pro" && sub?.status === "active";
-        } catch {
+        } catch (err) {
+          console.error("Subscription lookup failed:", err);
           token.isPro = false;
         }
       }

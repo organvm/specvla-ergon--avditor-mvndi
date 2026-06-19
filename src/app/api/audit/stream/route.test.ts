@@ -93,6 +93,9 @@ describe("API Route /api/audit/stream", () => {
 
     const response = await POST(request);
     expect(response.status).toBe(200);
+    expect(response.headers.get("X-Audit-Id")).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    );
     expect(mockStreamText).toHaveBeenCalled();
   });
 });

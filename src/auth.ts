@@ -2,10 +2,12 @@ import NextAuth from "next-auth"
 import Credentials from "next-auth/providers/credentials"
 import Google from "next-auth/providers/google"
 import GitHub from "next-auth/providers/github"
+import { normalizePlanId, isPaidPlan, isPremiumPlan } from "./lib/plans"
 
 // Auth module must NOT import config.ts or db.ts — those pull in
 // better-sqlite3 (native C++ addon) which crashes Vercel's SSR runtime.
-// All config here uses environment variables only.
+// All config here uses environment variables only. (lib/plans.ts is pure
+// data + helpers with no native deps, so it is safe to import here.)
 
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || "admin@growthauditor.ai").split(",");
 const AUTH_PASSWORD = process.env.AUTH_PASSWORD || "cosmic"; // allow-secret
@@ -45,6 +47,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (token && session.user) {
         session.user.isAdmin = token.isAdmin as boolean;
         session.user.isPro = token.isPro as boolean;
+        session.user.isPremium = token.isPremium as boolean;
+        session.user.plan = token.plan as string;
       }
       return session;
     },
@@ -59,10 +63,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         try {
           const db = await import("./lib/db");
           const sub = await db.getSubscription(email as string);
-          token.isPro = sub?.plan === "pro" && sub?.status === "active";
-        } catch (err) {
-          console.error("Subscription lookup failed:", err);
+          const active = sub?.status === "active";
+          const plan = active ? normalizePlanId(sub?.plan) : "free";
+          token.plan = plan;
+          // `isPro` means "has paid-tier features" — true for pro AND premium,
+          // so every existing isPro gate keeps working across both tiers.
+          token.isPro = active && isPaidPlan(plan);
+          token.isPremium = active && isPremiumPlan(plan);
+        } catch {
+          token.plan = "free";
           token.isPro = false;
+          token.isPremium = false;
         }
       }
       return token;

@@ -5,6 +5,7 @@ import { getCosmicAuditPrompt } from "@/services/promptTemplates";
 import { getPageSpeedInsights } from "@/services/pagespeed";
 import { createAIModel } from "@/services/aiModelFactory";
 import { generateText } from "ai";
+import { getEntitlements, isPaidPlan } from "@/lib/plans";
 
 export async function POST(request: Request) {
   try {
@@ -30,11 +31,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    const isPro = sub.plan === "pro";
+    // Public API access requires a paid tier; deeper crawls scale with it.
+    if (!isPaidPlan(sub.plan)) {
+      return NextResponse.json({ error: "A paid plan is required for API access" }, { status: 403 });
+    }
+    const { scrapeDepth } = getEntitlements(sub.plan);
     const apiKey = process.env.GEMINI_API_KEY; // allow-secret
 
     const [scrapedContent, seoData] = await Promise.all([
-      scrapeWebsite(link, isPro ? 3 : 1),
+      scrapeWebsite(link, scrapeDepth),
       getPageSpeedInsights(link).catch(() => null),
     ]);
 

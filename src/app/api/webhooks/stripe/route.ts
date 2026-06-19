@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { Resend } from "resend";
 import { updateSubscription } from "@/lib/db";
+import { normalizePlanId, resolvePlanFromPriceId } from "@/lib/plans";
 
 const stripeSecret = process.env.STRIPE_SECRET_KEY || "sk_test_placeholder";
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || "whsec_placeholder";
@@ -38,7 +39,10 @@ export async function POST(req: Request) {
     if (email) {
       try {
         if (isSubscription) {
-          await updateSubscription(email, "pro", "active");
+          // Default to "pro" when no plan metadata is present so legacy
+          // single-tier checkouts still grant paid entitlements.
+          const plan = normalizePlanId(session.metadata?.plan || "pro");
+          await updateSubscription(email, plan, "active");
           await resend.emails.send({
             from: "Avditor Mvndi <hello@growthauditor.ai>",
             to: email,
@@ -88,7 +92,12 @@ export async function POST(req: Request) {
 
     if (email) {
       const status = subscription.status === "active" ? "active" : "inactive";
-      await updateSubscription(email, "pro", status);
+      // Prefer the plan stamped in metadata at checkout; otherwise infer it
+      // from the active price ID on the subscription.
+      const plan = subscription.metadata?.plan
+        ? normalizePlanId(subscription.metadata.plan)
+        : resolvePlanFromPriceId(subscription.items?.data?.[0]?.price?.id);
+      await updateSubscription(email, plan, status);
       console.log("Subscription updated for", email);
     }
   }

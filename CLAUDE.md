@@ -76,7 +76,11 @@ A separate SQLite database at `data/config.db` (`src/lib/config.ts`) stores admi
 
 ### Authentication
 
-next-auth v5 beta (`src/auth.ts`) with three providers: Google, GitHub, Credentials. Session type is augmented in `src/types/next-auth.d.ts` with `isAdmin` and `isPro` boolean fields. These are populated in the JWT callback from the subscriptions table.
+next-auth v5 beta (`src/auth.ts`) with three providers: Google, GitHub, Credentials. Session type is augmented in `src/types/next-auth.d.ts` with `isAdmin`, `isPro`, `isPremium` booleans and a `plan` string. These are populated in the JWT callback from the subscriptions table. `isPro` means "has paid-tier features" — it is true for **both** the Pro and Premium tiers, so every existing `isPro` gate works across paid tiers; `isPremium`/`plan` distinguish the top tier.
+
+### Subscription Tiers
+
+`src/lib/plans.ts` is the single source of truth for the subscription tiers (`free`, `pro` $29/mo, `premium` $99/mo), their per-tier entitlements (vault access, scrape depth, team seats, etc.), and Stripe price-ID resolution (`getStripePriceId`, `resolvePlanFromPriceId`). It is dependency-free and safe to import anywhere (client + server). The pricing page renders from this catalog and posts a `tier` key; `/api/subscription` resolves the price ID server-side (it never trusts a client-supplied price), and the Stripe webhook persists the resolved tier from checkout metadata.
 
 ### Key Patterns
 
@@ -135,6 +139,8 @@ All optional — the app runs locally with zero config (SQLite fallback, user-su
 | `GEMINI_API_KEY` | Server-side Gemini key (optional — users can supply their own) |
 | `STRIPE_SECRET_KEY` | Stripe for Pro subscriptions |
 | `STRIPE_WEBHOOK_SECRET` | Stripe webhook verification |
+| `STRIPE_PRICE_PRO` | Stripe recurring price ID for the Pro tier ($29/mo) |
+| `STRIPE_PRICE_PREMIUM` | Stripe recurring price ID for the Premium tier ($99/mo) |
 | `RESEND_API_KEY` | Transactional email via Resend |
 | `NEXT_PUBLIC_POSTHOG_KEY` | PostHog analytics |
 | `NEXT_PUBLIC_SENTRY_DSN` | Sentry error tracking |

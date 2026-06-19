@@ -2,19 +2,20 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // auth.ts reads ADMIN_EMAILS / AUTH_PASSWORD at module-load time, so the env
 // must be set before the module is imported. vi.hoisted runs before imports.
-vi.hoisted(() => {
+// capturedConfig must also be hoisted so the vi.mock factory (which is hoisted
+// by Vitest) can reference it without a TDZ error.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const { capturedConfigHolder } = vi.hoisted(() => {
   process.env.ADMIN_EMAILS = "admin@growthauditor.ai, boss@corp.com";
   process.env.AUTH_PASSWORD = "cosmic"; // allow-secret
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const capturedConfigHolder: { value: any } = { value: undefined };
+  return { capturedConfigHolder };
 });
-
-// Capture the config object passed to NextAuth so we can exercise the
-// providers/callbacks directly without standing up a real auth server.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let capturedConfig: any;
 
 vi.mock("next-auth", () => ({
   default: vi.fn((config) => {
-    capturedConfig = config;
+    capturedConfigHolder.value = config;
     return { handlers: {}, signIn: vi.fn(), signOut: vi.fn(), auth: vi.fn() };
   }),
 }));
@@ -42,7 +43,7 @@ const mockGetSubscription = vi.mocked(getSubscription);
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getAuthorize(): (creds: any) => Promise<any> {
-  const provider = capturedConfig.providers.find(
+  const provider = capturedConfigHolder.value.providers.find(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (p: any) => typeof p.authorize === "function"
   );
@@ -115,7 +116,7 @@ describe("auth jwt callback", () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     mockGetSubscription.mockResolvedValue({ plan: "pro", status: "active" } as any);
 
-    const token = await capturedConfig.callbacks.jwt({
+    const token = await capturedConfigHolder.value.callbacks.jwt({
       token: {},
       user: { email: "admin@growthauditor.ai" },
     });
@@ -129,7 +130,7 @@ describe("auth jwt callback", () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     mockGetSubscription.mockResolvedValue({ plan: "free", status: "active" } as any);
 
-    const token = await capturedConfig.callbacks.jwt({
+    const token = await capturedConfigHolder.value.callbacks.jwt({
       token: {},
       user: { email: "user@example.com" },
     });
@@ -142,7 +143,7 @@ describe("auth jwt callback", () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     mockGetSubscription.mockResolvedValue({ plan: "pro", status: "canceled" } as any);
 
-    const token = await capturedConfig.callbacks.jwt({
+    const token = await capturedConfigHolder.value.callbacks.jwt({
       token: {},
       user: { email: "user@example.com" },
     });
@@ -153,7 +154,7 @@ describe("auth jwt callback", () => {
   it("defaults isPro to false when the subscription lookup throws", async () => {
     mockGetSubscription.mockRejectedValue(new Error("db unavailable"));
 
-    const token = await capturedConfig.callbacks.jwt({
+    const token = await capturedConfigHolder.value.callbacks.jwt({
       token: {},
       user: { email: "user@example.com" },
     });
@@ -164,7 +165,7 @@ describe("auth jwt callback", () => {
   it("returns the existing token untouched on refresh (no user)", async () => {
     const existing = { isAdmin: true, isPro: true, sub: "abc" };
 
-    const token = await capturedConfig.callbacks.jwt({ token: existing });
+    const token = await capturedConfigHolder.value.callbacks.jwt({ token: existing });
 
     expect(token).toBe(existing);
     expect(mockGetSubscription).not.toHaveBeenCalled();
@@ -173,7 +174,7 @@ describe("auth jwt callback", () => {
 
 describe("auth session callback", () => {
   it("copies isAdmin and isPro from token to session.user", async () => {
-    const session = await capturedConfig.callbacks.session({
+    const session = await capturedConfigHolder.value.callbacks.session({
       session: { user: { email: "u@example.com" }, expires: "" },
       token: { isAdmin: true, isPro: false },
     });
@@ -185,7 +186,7 @@ describe("auth session callback", () => {
   it("returns the session unchanged when there is no user", async () => {
     const input = { session: { expires: "" }, token: { isAdmin: true, isPro: true } };
 
-    const session = await capturedConfig.callbacks.session(input);
+    const session = await capturedConfigHolder.value.callbacks.session(input);
 
     expect(session).toEqual({ expires: "" });
   });

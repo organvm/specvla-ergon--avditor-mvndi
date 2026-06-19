@@ -222,6 +222,7 @@ src/app/api/audit        Browser audit and streaming audit endpoints
 src/app/api/v1/analyze   Pro public API endpoint
 src/app/pricing          Basic/Pro pricing UI
 src/app/settings         AI keys, agency branding, integrations, privacy controls
+src/app/dashboard        Aggregate product status and usage dashboard
 src/app/teams            Team collaboration UI
 src/components           Reusable UI components
 src/lib                  Database, config, schemas, rate limiting, validation

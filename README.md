@@ -4,7 +4,7 @@
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?style=for-the-badge&logo=next.js)](https://nextjs.org)
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react)](https://react.dev)
 
-Avditor Mvndi is a production-oriented AI growth-audit platform for websites, landing pages, and digital brands. It turns a URL, business niche, and growth goal into a strategic audit with scores, recommendations, PDF export, public sharing, history, comparisons, teams, scheduled re-audits, and subscription-gated agency features.
+Avditor Mvndi is a production-oriented AI growth-audit platform for websites, landing pages, and digital brands. It turns a URL, business niche, and growth goal into a strategic audit with scores, recommendations, shareable reports, PDF export, history, comparisons, teams, scheduled re-audits, and subscription-gated agency features.
 
 The product uses a "cosmic alignment" vocabulary in the UI, but the underlying job is practical: find messaging, design, conversion, reach, and technical bottlenecks that keep a digital property from converting.
 
@@ -13,20 +13,20 @@ The product uses a "cosmic alignment" vocabulary in the UI, but the underlying j
 Avditor Mvndi combines:
 
 - A Next.js 16 App Router frontend for audits, comparisons, results, settings, pricing, teams, history, and admin workflows.
-- API routes for audit generation, streaming results, lead capture, sharing, PDF generation, subscriptions, webhooks, recurring audits, teams, settings, and a Pro public API.
+- API routes for audit generation, streaming results, lead capture, sharing, PDF generation, subscriptions, webhooks, recurring audits, teams, settings, and a Pro-only public API.
 - A multi-provider AI layer that supports Google Gemini, OpenAI, and Anthropic Claude through the Vercel AI SDK.
 - Website scraping and PageSpeed enrichment for audit context.
 - Supabase persistence in production, with an in-memory fallback for local development.
-- Stripe billing for the Basic/Pro tier model and one-time post-audit offers.
+- Stripe billing for the Basic/Pro tier model and optional post-audit service offers.
 - Resend email notifications for subscription and recurring-audit flows.
 
-The audit experience is organized around strategic signal pillars such as communication, aesthetic, drive, structure, reach, psychology, identity, and vision. Reports can be viewed in the app, exported to PDF, discussed with the chat assistant, shared publicly after the audit is saved, and tracked over time.
+The audit experience is organized around strategic signal pillars such as communication, aesthetic, drive, structure, reach, psychology, identity, and vision. Reports can be viewed in the app, shared publicly, exported to PDF, discussed with the chat assistant, and tracked over time.
 
 ## Who Pays
 
 The free user is an individual creator, founder, or operator who wants a quick audit and is willing to bring their own AI provider key.
 
-The paying customer is usually a professional founder, consultant, studio, or agency that needs repeatable client-facing audits. They pay for Pro because the platform becomes part of their workflow: deeper crawling, scheduled re-audits, white-label reports, and API access.
+The paying customer is usually a professional founder, consultant, studio, or agency that needs repeatable client-facing audits. They pay for Pro because the platform becomes part of their workflow: deeper crawling, scheduled re-audits, team collaboration, white-label reports, and API access.
 
 Typical payer profiles:
 
@@ -38,23 +38,16 @@ Typical payer profiles:
 
 ## Pricing And Monetization
 
-The source of truth for displayed subscription copy is `src/app/pricing/page.tsx`. The source of truth for one-time checkout amounts is `src/app/api/checkout/route.ts`.
+The app currently exposes a two-tier subscription model in `src/app/pricing/page.tsx`.
 
-| Tier | Displayed price | Buyer | Current implementation |
+| Tier | Price | Buyer | Included |
 | --- | ---: | --- | --- |
-| Basic | `$0` | Individual creators and hobbyists | Single-page browser audits, manual PDF exports, public sharing, and user-supplied Gemini/OpenAI/Claude keys. Authenticated teams and integrations are available in the current API and are not hard Pro gates. |
-| Pro | `$49/mo` | Professional founders and agencies | Server-enforced for multi-page audit scraping, scheduled audits, custom branding, and PAT-based public API access when the subscription is active. |
+| Basic | `$0` | Individual creators and hobbyists | Single-page audits, manual PDF exports, standard AI models, public sharing |
+| Pro | `$49/mo` | Professional founders and agencies | Multi-page deep analysis, scheduled recurring audits, white-label PDF reports, team collaboration for 3 members, premium AI models |
 
-Feature gates are driven by the session's `isPro` or `isAdmin` flags. Active Pro subscriptions are stored as `plan: "pro"` and `status: "active"` in the `subscriptions` data store. Stripe webhooks update that state, and `src/auth.ts` refreshes the session token from `getSubscription()` during JWT callbacks.
+Feature gates are driven by the session's `isPro` or `isAdmin` flags. Active Pro subscriptions are stored as `plan: "pro"` and `status: "active"` in the `subscriptions` data store. Stripe webhooks update that subscription state when checkout sessions complete or subscriptions change.
 
-Pricing notes:
-
-- `/pricing` posts to `/api/subscription` and starts a Stripe subscription checkout.
-- The Pro button currently uses `price_placeholder_pro`; replace it with a real Stripe recurring price ID before charging customers.
-- The pricing page mentions team collaboration and premium AI models, but the current API does not enforce a three-seat Pro limit and Settings exposes all providers in `AI_PROVIDERS` to users who supply their own keys.
-- Keep this section aligned with `src/app/pricing/page.tsx`, `src/app/api/subscription/route.ts`, and `src/app/api/webhooks/stripe/route.ts` whenever billing changes.
-
-The result-page path buttons collect an email and post to `/api/checkout` for one-time offers:
+Additional monetization paths appear after an audit:
 
 | Path | Checkout amount | Positioning |
 | --- | ---: | --- |
@@ -62,7 +55,13 @@ The result-page path buttons collect an email and post to `/api/checkout` for on
 | The Vault | `$297` one time | Templates, blueprints, and proprietary resources |
 | The Oracle | `$500` one time | 1-on-1 diagnostic or consultation |
 
-With placeholder Stripe secrets, checkout routes return mock Stripe URLs for local testing. Register `/api/webhooks/stripe` as the Stripe webhook endpoint before relying on production subscription or payment side effects.
+Production billing notes:
+
+- `/pricing` posts to `/api/subscription` and starts a Stripe subscription checkout.
+- The current Pro button uses `price_placeholder_pro`; replace it with a real Stripe recurring price ID before charging customers.
+- `/api/checkout` supports the one-time post-audit paths listed above.
+- `/api/webhooks/stripe` must be registered as the Stripe webhook endpoint so Pro state is persisted.
+- With placeholder Stripe secrets, checkout routes return mock Stripe URLs for local testing.
 
 ## Install
 
@@ -121,9 +120,7 @@ WEBHOOK_URL=
 WEBHOOK_SECRET=
 ```
 
-Local development works without Supabase by using an in-memory store. That data resets when the dev server restarts.
-
-For durable production data, run `supabase/migration.sql` and configure Supabase. The migration covers the tables used by `src/lib/db.ts`: audits, teams, team members, leads, scheduled audits, subscriptions, integrations, API tokens, and audit feedback.
+Local development works without Supabase by using an in-memory store. That data resets when the dev server restarts. For durable teams, subscriptions, schedules, audit history, integrations, leads, and API tokens, configure Supabase.
 
 ## Usage
 
@@ -136,7 +133,7 @@ For durable production data, run `supabase/migration.sql` and configure Supabase
 5. Enter the URL, business niche, and growth goal.
 6. Generate the audit and review the results at `/results`.
 
-The results view can show strategic scores, reveal the full audit, export a PDF, collect feedback, share a public report when the audit has a saved ID, and open a context-aware chat assistant.
+The results view can show strategic scores, reveal the full audit, export a PDF, collect feedback, share a public report, and open a context-aware chat assistant.
 
 ### Compare Competitors
 
@@ -144,16 +141,17 @@ Use `/compare` to compare two or three URLs against the same business type and g
 
 ### Use Teams
 
-Authenticated users can create teams at `/teams`, invite members, and assign audits or schedules to a team. Team roles include `owner`, `admin`, and `member`. The current API checks authentication and team ownership/admin membership, but it does not enforce a Pro-only team boundary or a three-member limit.
+Authenticated users can create teams at `/teams`, invite members, and assign audits or schedules to a team. Team roles include `owner`, `admin`, and `member`.
 
 ### Use Pro Features
 
-After a user has an active Pro subscription and a refreshed session, `isPro: true` unlocks:
+After a user has an active Pro subscription, the session receives `isPro: true`. That unlocks:
 
 - Multi-page scraping for deeper audit context.
 - Scheduled weekly or monthly audits at `/settings/schedules`.
 - White-label agency logo configuration in `/settings`.
-- PAT-based public API access.
+- Team-oriented workflows.
+- Pro-only public API access when a valid personal access token exists.
 
 Admins listed in `ADMIN_EMAILS` receive admin privileges without needing a paid subscription.
 
@@ -162,7 +160,7 @@ Admins listed in `ADMIN_EMAILS` receive admin privileges without needing a paid 
 There are two audit API patterns:
 
 - `/api/audit` and `/api/audit/stream` accept a user-supplied AI provider key as `Authorization: Bearer <provider-api-key>` and optionally `X-AI-Provider: gemini | openai | claude`.
-- `/api/v1/analyze` is the Pro public API. It requires a personal access token stored in `api_tokens` and an active subscription for the token owner. Token storage is implemented in `src/lib/db.ts`; wire token issuance into your admin or account flow before offering this endpoint externally.
+- `/api/v1/analyze` is the Pro public API. It requires a personal access token stored in the app database and an active subscription. Token storage is implemented in `src/lib/db.ts`; wire token issuance into your admin or account flow before offering this endpoint externally.
 
 Example browser-style audit request:
 
@@ -236,7 +234,7 @@ docs/                    Architecture notes, roadmap, and product specs
 For production:
 
 - Set `NEXT_PUBLIC_BASE_URL` to the deployed app URL.
-- Run `supabase/migration.sql` and configure Supabase credentials for durable data.
+- Configure Supabase credentials for durable data.
 - Set `GEMINI_API_KEY` for server-side jobs, admin actions, cron, and Pro API flows.
 - Configure Stripe keys and webhook secret.
 - Replace placeholder Stripe price IDs with real products/prices.

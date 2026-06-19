@@ -4,12 +4,12 @@ test.describe("Settings", () => {
   test("saves and persists Gemini API key", async ({ page }) => {
     await page.goto("/settings");
 
-    const input = page.locator("#gemini");
+    const input = page.locator("#apikey");
     await input.fill("AIzaSyTestKey123");
-    await page.getByRole("button", { name: /Save Configuration/i }).click();
+    await page.getByRole("button", { name: /Align AI Engine/i }).click();
 
     // Verify success feedback
-    await expect(page.getByRole("button", { name: /Key Saved/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Alignment Saved/i })).toBeVisible();
 
     // Reload and verify persistence
     await page.reload();

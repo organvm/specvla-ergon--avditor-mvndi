@@ -4,14 +4,15 @@ test.describe("Audit Flow", () => {
   test("shows error when API key is missing", async ({ page }) => {
     await page.goto("/");
 
+    await page.getByRole("button", { name: /Initiate Alignment/i }).click();
     await page.locator("#link").fill("https://example.com");
     await page.locator("#business").fill("Technology");
     await page.locator("#goals").fill("Increase conversions");
 
-    await page.getByRole("button", { name: /Generate Cosmic Audit/i }).click();
+    await page.getByRole("button", { name: /Generate Strategic Audit/i }).click();
 
     await expect(
-      page.getByText("Please configure your Gemini API key in Settings first.")
+      page.getByText("Please configure your AI key in Settings.")
     ).toBeVisible();
   });
 
@@ -23,11 +24,12 @@ test.describe("Audit Flow", () => {
     });
     await page.reload();
 
+    await page.getByRole("button", { name: /Initiate Alignment/i }).click();
     await page.locator("#link").fill("https://example.com");
     await page.locator("#business").fill("Technology");
     await page.locator("#goals").fill("Increase conversions");
 
-    await page.getByRole("button", { name: /Generate Cosmic Audit/i }).click();
+    await page.getByRole("button", { name: /Generate Strategic Audit/i }).click();
 
     // Should navigate to /results
     await expect(page).toHaveURL(/\/results/);

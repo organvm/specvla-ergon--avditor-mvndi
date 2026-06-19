@@ -49,7 +49,13 @@ export async function POST(request: Request) {
     const apiKey = authHeader.split(" ")[1]; // allow-secret
     const provider = (request.headers.get("X-AI-Provider") || "gemini") as AIProvider;
 
-    const body = await request.json();
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return new Response(JSON.stringify({ error: "Invalid JSON body" }), { status: 400 });
+    }
+
     const validation = AuditSchema.safeParse(body);
 
     if (!validation.success) {

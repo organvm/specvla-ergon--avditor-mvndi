@@ -76,12 +76,12 @@ export async function POST(request: Request) {
 
     const model = createAIModel(provider, apiKey);
     const prompt = getStreamingAuditPrompt(link, businessType, goals, scrapedContent, seoData, language);
+    const auditId = crypto.randomUUID();
 
     const result = streamText({
       model,
       prompt,
       onFinish: async ({ text }) => {
-        const auditId = crypto.randomUUID();
         const scores = parseScoresFromText(text);
 
         try {
@@ -101,7 +101,9 @@ export async function POST(request: Request) {
       },
     });
 
-    return result.toTextStreamResponse();
+    const response = result.toTextStreamResponse();
+    response.headers.set("X-Audit-Id", auditId);
+    return response;
   } catch (error: unknown) {
     console.error("Stream Error:", error);
     return new Response(JSON.stringify({ error: "Portal interference." }), { status: 500 });

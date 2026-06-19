@@ -142,9 +142,11 @@ export default function ResultsPage() {
     const runAudit = async () => {
       const cachedResult = sessionStorage.getItem("current_audit_result");
       const cachedScores = sessionStorage.getItem("current_audit_scores");
+      const cachedAuditId = sessionStorage.getItem("current_audit_id");
       if (cachedResult && cachedScores) {
         setAudit(cachedResult);
         setScores(JSON.parse(cachedScores));
+        if (cachedAuditId) setAuditId(cachedAuditId);
         setLoading(false);
         return;
       }
@@ -189,6 +191,12 @@ export default function ResultsPage() {
             throw new Error("No response body for streaming");
           }
 
+          const streamedAuditId = streamResponse.headers.get("X-Audit-Id");
+          if (streamedAuditId) {
+            setAuditId(streamedAuditId);
+            sessionStorage.setItem("current_audit_id", streamedAuditId);
+          }
+
           const reader = streamResponse.body.getReader();
           const decoder = new TextDecoder();
           let fullText = "";
@@ -229,7 +237,10 @@ export default function ResultsPage() {
 
           setAudit(result.audit);
           setScores(result.scores);
-          if (result.id) setAuditId(result.id);
+          if (result.id) {
+            setAuditId(result.id);
+            sessionStorage.setItem("current_audit_id", result.id);
+          }
           sessionStorage.setItem("current_audit_result", result.audit);
           sessionStorage.setItem("current_audit_scores", JSON.stringify(result.scores));
         }
@@ -286,13 +297,13 @@ export default function ResultsPage() {
         <h1 style={{ letterSpacing: "-0.06em", fontWeight: 900 }}>Strategic Alignment</h1>
         <p>A procedural identity derived from your digital footprint.</p>
         
-        <div style={{ marginTop: "1rem" }}>
+        {auditId && <div style={{ marginTop: "1rem" }}>
           <ShareButtons
             url={`/share/${auditId}`}
             title="Cosmic Growth Audit"
             score={scores ? Math.round((scores.communication + scores.aesthetic + scores.drive + scores.structure) / 4) : 0}
           />
-        </div>
+        </div>}
       </div>
 
       <div className="container" style={{ width: "100%", maxWidth: "900px" }}>
@@ -360,6 +371,7 @@ export default function ResultsPage() {
               color="#7000ff"
               description="Direct expert execution. We implement the submerged strategy for you to ensure perfect technical and creative alignment. Full disclosure of proprietary playbooks included." 
               buttonText="Inquire for Execution" 
+              checkoutPathNumber={1}
               isPrimary={true} 
             />
             <SignalPathNode 
@@ -369,6 +381,7 @@ export default function ResultsPage() {
               color="#00d4ff"
               description="Access proprietary templates and actionable blueprints. This high-density resource is gated behind our professional alignment tier." 
               buttonText="Unlock the Vault" 
+              checkoutPathNumber={2}
             />
             <SignalPathNode 
               pathNumber={3} 
@@ -377,6 +390,7 @@ export default function ResultsPage() {
               color="#ffcc00"
               description="1-on-1 strategic diagnostic. Dive deep into the oceanic data with an expert to map your brand's unique growth window." 
               buttonText="Request Consultation" 
+              checkoutPathNumber={3}
             />
           </div>
         </div>

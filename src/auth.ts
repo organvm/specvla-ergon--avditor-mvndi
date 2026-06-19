@@ -49,15 +49,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return session;
     },
     async jwt({ token, user }) {
-      if (user) {
-        const isAdmin = ADMIN_EMAILS.some(e => user.email === e.trim());
+      const email = (user?.email ?? token.email) as string | undefined;
+      if (email) {
+        const isAdmin = ADMIN_EMAILS.some(e => email === e.trim());
         token.isAdmin = isAdmin;
 
         // Subscription check — lazy import to avoid bundling better-sqlite3
         // into the auth module's SSR bundle
         try {
           const db = await import("./lib/db");
-          const sub = await db.getSubscription(user.email as string);
+          const sub = await db.getSubscription(email as string);
           token.isPro = sub?.plan === "pro" && sub?.status === "active";
         } catch {
           token.isPro = false;

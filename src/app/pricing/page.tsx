@@ -3,58 +3,27 @@
 import { useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-
-const PLANS = [
-  {
-    id: "basic",
-    name: "Basic",
-    price: "$0",
-    description: "For individual creators and hobbyists.",
-    features: [
-      "Single-page audits",
-      "Manual PDF exports",
-      "Standard AI models",
-      "Public sharing",
-    ],
-    cta: "Current Plan",
-    disabled: true,
-  },
-  {
-    id: "pro",
-    name: "Pro",
-    price: "$49",
-    interval: "/mo",
-    description: "For professional founders and agencies.",
-    features: [
-      "Multi-page deep analysis",
-      "Scheduled recurring audits",
-      "White-label PDF reports",
-      "Team collaboration (3 members)",
-      "Premium AI models (Claude 3.5 Sonnet)",
-    ],
-    cta: "Manifest Pro",
-    priceId: "price_placeholder_pro",
-    highlight: true,
-  },
-];
+import { PLAN_ORDER, PLAN_CATALOG, type PlanId } from "@/lib/plans";
 
 export default function PricingPage() {
   const { data: session } = useSession();
   const router = useRouter();
-  const [loading, setLoading] = useState<string | null>(null);
+  const [loading, setLoading] = useState<PlanId | null>(null);
 
-  const handleSubscribe = async (priceId: string) => {
+  const currentPlan = (session?.user?.plan as PlanId | undefined) ?? "free";
+
+  const handleSubscribe = async (tier: PlanId) => {
     if (!session) {
       router.push("/api/auth/signin");
       return;
     }
 
-    setLoading(priceId);
+    setLoading(tier);
     try {
       const res = await fetch("/api/subscription", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: session.user?.email, priceId }),
+        body: JSON.stringify({ email: session.user?.email, tier }),
       });
 
       const data = await res.json();
@@ -82,47 +51,55 @@ export default function PricingPage() {
         <p>Choose the path that aligns with your digital manifestation goals.</p>
       </div>
 
-      <div className="container" style={{ maxWidth: "1000px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1.5rem", marginBottom: "4rem" }}>
-        {PLANS.map((plan) => (
-          <div 
-            key={plan.id} 
-            className="card" 
-            style={{ 
-              display: "flex", 
-              flexDirection: "column",
-              borderColor: plan.highlight ? "var(--primary)" : "rgba(255,255,255,0.1)",
-              borderWidth: plan.highlight ? "2px" : "1px",
-              position: "relative"
-            }}
-          >
-            {plan.highlight && (
-              <div style={{ position: "absolute", top: "-12px", left: "50%", transform: "translateX(-50%)", backgroundColor: "var(--primary)", color: "#000", padding: "0.25rem 0.75rem", borderRadius: "20px", fontSize: "0.7rem", fontWeight: 800, whiteSpace: "nowrap" }}>
-                MOST POPULAR
-              </div>
-            )}
-            <h2 style={{ fontSize: "1.25rem", marginBottom: "0.5rem" }}>{plan.name}</h2>
-            <div style={{ fontSize: "2.5rem", fontWeight: 800, marginBottom: "1rem" }}>
-              {plan.price}<span style={{ fontSize: "0.9rem", fontWeight: 400, color: "var(--text-muted)" }}>{plan.interval}</span>
-            </div>
-            <p style={{ color: "var(--text-muted)", marginBottom: "1.5rem", minHeight: "2.5rem", fontSize: "0.9rem" }}>{plan.description}</p>
-            
-            <ul style={{ listStyle: "none", padding: 0, margin: "0 0 2rem 0", flex: 1 }}>
-              {plan.features.map((feature) => (
-                <li key={feature} style={{ marginBottom: "0.75rem", display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.9rem" }}>
-                  <span style={{ color: "var(--primary)", minWidth: "1.25rem" }}>✓</span> {feature}
-                </li>
-              ))}
-            </ul>
+      <div className="container" style={{ maxWidth: "1100px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1.5rem", marginBottom: "4rem" }}>
+        {PLAN_ORDER.map((id) => {
+          const plan = PLAN_CATALOG[id];
+          const isFree = plan.priceMonthly === 0;
+          const isCurrent = currentPlan === id;
+          const cta = isCurrent ? "Current Plan" : plan.cta;
+          const disabled = isFree || isCurrent || loading === id;
 
-            <button 
-              className={`btn ${plan.highlight ? "" : "btn-secondary"}`}
-              onClick={() => plan.priceId && handleSubscribe(plan.priceId)}
-              disabled={plan.disabled || loading === plan.priceId}
+          return (
+            <div
+              key={plan.id}
+              className="card"
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                borderColor: plan.highlight ? "var(--primary)" : "rgba(255,255,255,0.1)",
+                borderWidth: plan.highlight ? "2px" : "1px",
+                position: "relative",
+              }}
             >
-              {loading === plan.priceId ? "Opening Portal..." : plan.cta}
-            </button>
-          </div>
-        ))}
+              {plan.badge && (
+                <div style={{ position: "absolute", top: "-12px", left: "50%", transform: "translateX(-50%)", backgroundColor: plan.highlight ? "var(--primary)" : "var(--accent)", color: "#000", padding: "0.25rem 0.75rem", borderRadius: "20px", fontSize: "0.7rem", fontWeight: 800, whiteSpace: "nowrap" }}>
+                  {plan.badge}
+                </div>
+              )}
+              <h2 style={{ fontSize: "1.25rem", marginBottom: "0.5rem" }}>{plan.name}</h2>
+              <div style={{ fontSize: "2.5rem", fontWeight: 800, marginBottom: "1rem" }}>
+                {plan.priceLabel}<span style={{ fontSize: "0.9rem", fontWeight: 400, color: "var(--text-muted)" }}>{plan.interval}</span>
+              </div>
+              <p style={{ color: "var(--text-muted)", marginBottom: "1.5rem", minHeight: "2.5rem", fontSize: "0.9rem" }}>{plan.description}</p>
+
+              <ul style={{ listStyle: "none", padding: 0, margin: "0 0 2rem 0", flex: 1 }}>
+                {plan.features.map((feature) => (
+                  <li key={feature} style={{ marginBottom: "0.75rem", display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.9rem" }}>
+                    <span style={{ color: "var(--primary)", minWidth: "1.25rem" }}>✓</span> {feature}
+                  </li>
+                ))}
+              </ul>
+
+              <button
+                className={`btn ${plan.highlight ? "" : "btn-secondary"}`}
+                onClick={() => !isFree && handleSubscribe(plan.id)}
+                disabled={disabled}
+              >
+                {loading === plan.id ? "Opening Portal..." : cta}
+              </button>
+            </div>
+          );
+        })}
       </div>
     </main>
   );

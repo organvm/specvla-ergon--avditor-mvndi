@@ -24,7 +24,9 @@ describe("PricingPage", () => {
     render(<PricingPage />);
     expect(screen.getByText("Basic")).toBeInTheDocument();
     expect(screen.getByText("Pro")).toBeInTheDocument();
-    expect(screen.getByText("$49")).toBeInTheDocument();
+    // Pro is $29/mo, Premium is $99/mo (pricing comes from src/lib/plans.ts)
+    expect(screen.getByText("$29")).toBeInTheDocument();
+    expect(screen.getByText("$99")).toBeInTheDocument();
   });
 
   it("triggers stripe checkout on button click", async () => {

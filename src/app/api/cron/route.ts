@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { saveAudit, getScheduledAudits, updateScheduledAudit, getSubscription, getTeamMembers } from "@/lib/db";
 import { orchestrateCosmicAudit } from "@/services/aiOrchestrator";
+import { isPaidPlan } from "@/lib/plans";
 import { Resend } from "resend";
 import crypto from "crypto";
 
@@ -20,7 +21,7 @@ async function generateMonthlyAudit(
   }
 
   const sub = await getSubscription(userEmail);
-  const isPro = sub?.plan === "pro" && sub?.status === "active";
+  const isPro = sub?.status === "active" && isPaidPlan(sub?.plan);
 
   // Use the submerged orchestrator for consistency and quality
   const result = await orchestrateCosmicAudit({

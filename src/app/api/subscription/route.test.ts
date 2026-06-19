@@ -44,8 +44,16 @@ describe("POST /api/subscription", () => {
     mockGet.mockReturnValue(0);
   });
 
-  it("returns mock URL with placeholder key", async () => {
-    const res = await POST(makeRequest({ email: "user@test.com", priceId: "price_123" }));
+  it("returns mock URL with placeholder key for a valid tier", async () => {
+    const res = await POST(makeRequest({ email: "user@test.com", tier: "pro" }));
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.url).toBe("https://checkout.stripe.com/pay/cs_test_mock123");
+  });
+
+  it("accepts the agency tier", async () => {
+    const res = await POST(makeRequest({ email: "user@test.com", tier: "agency" }));
     const data = await res.json();
 
     expect(res.status).toBe(200);
@@ -53,25 +61,33 @@ describe("POST /api/subscription", () => {
   });
 
   it("returns 400 when email is missing", async () => {
-    const res = await POST(makeRequest({ priceId: "price_123" }));
+    const res = await POST(makeRequest({ tier: "pro" }));
     const data = await res.json();
 
     expect(res.status).toBe(400);
-    expect(data.error).toBe("Email and priceId are required");
+    expect(data.error).toBe("Email and a valid tier are required");
   });
 
-  it("returns 400 when priceId is missing", async () => {
+  it("returns 400 when tier is missing", async () => {
     const res = await POST(makeRequest({ email: "user@test.com" }));
     const data = await res.json();
 
     expect(res.status).toBe(400);
-    expect(data.error).toBe("Email and priceId are required");
+    expect(data.error).toBe("Email and a valid tier are required");
+  });
+
+  it("returns 400 for an unknown/non-paid tier", async () => {
+    const res = await POST(makeRequest({ email: "user@test.com", tier: "basic" }));
+    const data = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(data.error).toBe("Email and a valid tier are required");
   });
 
   it("returns 429 on rate limit", async () => {
     mockGet.mockReturnValue(10);
 
-    const res = await POST(makeRequest({ email: "user@test.com", priceId: "price_123" }, "1.2.3.4"));
+    const res = await POST(makeRequest({ email: "user@test.com", tier: "pro" }, "1.2.3.4"));
     const data = await res.json();
 
     expect(res.status).toBe(429);

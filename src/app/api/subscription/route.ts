@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { LRUCache } from "lru-cache";
+import { isPaidTier, priceIdForTier } from "@/lib/pricing";
 
 const stripeSecret = process.env.STRIPE_SECRET_KEY || "sk_test_placeholder";
 const stripe = new Stripe(stripeSecret, {
@@ -22,15 +23,21 @@ export async function POST(request: Request) {
     }
     rateLimit.set(ip, currentUsage + 1);
 
-    const { email, priceId } = await request.json();
+    const { email, tier } = await request.json();
 
-    if (!email || !priceId) {
-      return NextResponse.json({ error: "Email and priceId are required" }, { status: 400 });
+    if (!email || !isPaidTier(tier)) {
+      return NextResponse.json({ error: "Email and a valid tier are required" }, { status: 400 });
     }
 
     if (stripeSecret === "sk_test_placeholder") {
       console.warn("Using placeholder Stripe key. Simulating subscription checkout URL.");
       return NextResponse.json({ url: "https://checkout.stripe.com/pay/cs_test_mock123" });
+    }
+
+    const priceId = priceIdForTier(tier);
+    if (!priceId) {
+      console.error(`No Stripe price configured for tier "${tier}". Set STRIPE_PRICE_${tier.toUpperCase()}.`);
+      return NextResponse.json({ error: "This plan is not available right now. Please try again later." }, { status: 500 });
     }
 
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
@@ -46,10 +53,11 @@ export async function POST(request: Request) {
       ],
       mode: "subscription",
       success_url: `${baseUrl}/results?success=true&subscription=active`,
-      cancel_url: `${baseUrl}/settings?canceled=true`,
+      cancel_url: `${baseUrl}/pricing?canceled=true`,
       subscription_data: {
         metadata: {
           userEmail: email,
+          tier,
         },
       },
     });

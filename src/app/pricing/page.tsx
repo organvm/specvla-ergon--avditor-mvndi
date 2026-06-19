@@ -3,58 +3,25 @@
 import { useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-
-const PLANS = [
-  {
-    id: "basic",
-    name: "Basic",
-    price: "$0",
-    description: "For individual creators and hobbyists.",
-    features: [
-      "Single-page audits",
-      "Manual PDF exports",
-      "Standard AI models",
-      "Public sharing",
-    ],
-    cta: "Current Plan",
-    disabled: true,
-  },
-  {
-    id: "pro",
-    name: "Pro",
-    price: "$49",
-    interval: "/mo",
-    description: "For professional founders and agencies.",
-    features: [
-      "Multi-page deep analysis",
-      "Scheduled recurring audits",
-      "White-label PDF reports",
-      "Team collaboration (3 members)",
-      "Premium AI models (Claude 3.5 Sonnet)",
-    ],
-    cta: "Manifest Pro",
-    priceId: "price_placeholder_pro",
-    highlight: true,
-  },
-];
+import { PLANS } from "@/lib/pricing";
 
 export default function PricingPage() {
   const { data: session } = useSession();
   const router = useRouter();
   const [loading, setLoading] = useState<string | null>(null);
 
-  const handleSubscribe = async (priceId: string) => {
+  const handleSubscribe = async (tier: string) => {
     if (!session) {
       router.push("/api/auth/signin");
       return;
     }
 
-    setLoading(priceId);
+    setLoading(tier);
     try {
       const res = await fetch("/api/subscription", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: session.user?.email, priceId }),
+        body: JSON.stringify({ email: session.user?.email, tier }),
       });
 
       const data = await res.json();
@@ -114,12 +81,12 @@ export default function PricingPage() {
               ))}
             </ul>
 
-            <button 
+            <button
               className={`btn ${plan.highlight ? "" : "btn-secondary"}`}
-              onClick={() => plan.priceId && handleSubscribe(plan.priceId)}
-              disabled={plan.disabled || loading === plan.priceId}
+              onClick={() => plan.paid && handleSubscribe(plan.id)}
+              disabled={plan.disabled || loading === plan.id}
             >
-              {loading === plan.priceId ? "Opening Portal..." : plan.cta}
+              {loading === plan.id ? "Opening Portal..." : plan.cta}
             </button>
           </div>
         ))}

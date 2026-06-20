@@ -7,6 +7,7 @@ import { createRateLimiter, getClientIP } from "@/lib/rate-limit";
 import { type AIProvider } from "@/services/aiProvider";
 import { orchestrateCosmicAudit } from "@/services/aiOrchestrator";
 import { z } from "zod";
+import { getEffectivePlan, getEntitlements } from "@/lib/plans";
 
 const rateLimiter = createRateLimiter({ max: 5, windowMs: 60 * 60 * 1000 });
 
@@ -51,7 +52,12 @@ export async function POST(request: Request) {
 
     const { link, businessType, goals, teamId } = validation.data;
     const session = await auth();
-    const isPro = !!(session?.user?.isPro || session?.user?.isAdmin);
+    const plan = getEffectivePlan(session?.user?.plan, {
+      isAdmin: session?.user?.isAdmin,
+      isPro: session?.user?.isPro,
+      isPremium: session?.user?.isPremium,
+    });
+    const entitlements = getEntitlements(plan);
 
     // DELEGATE TO SUBMERGED ORCHESTRATOR
     const result = await orchestrateCosmicAudit({
@@ -60,7 +66,9 @@ export async function POST(request: Request) {
       goals,
       provider,
       auth: apiKey,
-      isPro,
+      isPro: entitlements.advancedAudit,
+      scrapeDepth: entitlements.scrapeDepth,
+      advancedAudit: entitlements.advancedAudit,
     });
 
     const auditId = crypto.randomUUID();

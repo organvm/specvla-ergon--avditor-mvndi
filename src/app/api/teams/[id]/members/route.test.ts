@@ -18,7 +18,7 @@ describe("Team Members API", () => {
 
   beforeEach(() => {
     vi.resetAllMocks();
-    (auth as unknown as Mock).mockResolvedValue({ user: { email: mockEmail } });
+    (auth as unknown as Mock).mockResolvedValue({ user: { email: mockEmail, plan: "pro", isPro: true } });
   });
 
   describe("GET", () => {
@@ -64,6 +64,23 @@ describe("Team Members API", () => {
 
       const res = await POST(req, { params: Promise.resolve({ id: teamId }) });
       expect(res.status).toBe(403);
+    });
+
+    it("returns 403 when the current plan seat limit is reached", async () => {
+      vi.mocked(db.getTeamMembers).mockResolvedValue([
+        { id: "m1", teamId: "team-123", email: mockEmail, role: "owner" as const },
+        { id: "m2", teamId: "team-123", email: "a@test.com", role: "member" as const },
+        { id: "m3", teamId: "team-123", email: "b@test.com", role: "member" as const },
+      ]);
+
+      const req = new Request(`http://localhost/api/teams/${teamId}/members`, {
+        method: "POST",
+        body: JSON.stringify({ email: "new@test.com" }),
+      });
+
+      const res = await POST(req, { params: Promise.resolve({ id: teamId }) });
+      expect(res.status).toBe(403);
+      expect(db.addTeamMember).not.toHaveBeenCalled();
     });
   });
 });

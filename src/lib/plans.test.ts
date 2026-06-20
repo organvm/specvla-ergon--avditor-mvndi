@@ -6,6 +6,8 @@ import {
   getPlan,
   isPaidPlan,
   isPremiumPlan,
+  isActiveSubscriptionStatus,
+  getEffectivePlan,
   planAtLeast,
   getEntitlements,
   getStripePriceId,
@@ -63,6 +65,21 @@ describe("tier predicates", () => {
   it("isPremiumPlan is true only for premium", () => {
     expect(isPremiumPlan("pro")).toBe(false);
     expect(isPremiumPlan("premium")).toBe(true);
+  });
+
+  it("recognizes active subscription statuses", () => {
+    expect(isActiveSubscriptionStatus("active")).toBe(true);
+    expect(isActiveSubscriptionStatus("trialing")).toBe(true);
+    expect(isActiveSubscriptionStatus("past_due")).toBe(false);
+    expect(isActiveSubscriptionStatus(null)).toBe(false);
+  });
+
+  it("derives the effective plan from admin and session flags", () => {
+    expect(getEffectivePlan("free", { isAdmin: true })).toBe("premium");
+    expect(getEffectivePlan("free", { isPremium: true })).toBe("premium");
+    expect(getEffectivePlan(undefined, { isPro: true })).toBe("pro");
+    expect(getEffectivePlan("premium", { isPro: true })).toBe("premium");
+    expect(getEffectivePlan("unknown")).toBe("free");
   });
 
   it("planAtLeast respects the hierarchy", () => {

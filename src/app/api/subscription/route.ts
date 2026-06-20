@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { LRUCache } from "lru-cache";
+import { auth } from "@/auth";
 import {
   PAID_PLAN_IDS,
   getStripePriceId,
@@ -29,11 +30,14 @@ export async function POST(request: Request) {
     }
     rateLimit.set(ip, currentUsage + 1);
 
-    const { email, tier, priceId } = await request.json();
+    const sessionUser = (await auth())?.user;
 
-    if (!email) {
-      return NextResponse.json({ error: "Email is required" }, { status: 400 });
+    if (!sessionUser?.email) {
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     }
+
+    const email = sessionUser.email;
+    const { tier, priceId } = await request.json();
 
     // Resolve the target plan and its Stripe price. Prefer the tier key
     // (the client never sends a raw price ID — we resolve it server-side so
@@ -48,9 +52,11 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "Invalid subscription tier" }, { status: 400 });
       }
       resolvedPriceId = getStripePriceId(plan);
-    } else if (priceId) {
+    } else if (priceId && sessionUser.isAdmin) {
       plan = resolvePlanFromPriceId(priceId);
       resolvedPriceId = priceId;
+    } else if (priceId) {
+      return NextResponse.json({ error: "A tier is required" }, { status: 400 });
     } else {
       return NextResponse.json({ error: "A tier or priceId is required" }, { status: 400 });
     }
@@ -70,6 +76,8 @@ export async function POST(request: Request) {
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       customer_email: email,
+      client_reference_id: email,
+      allow_promotion_codes: true,
       line_items: [
         {
           price: resolvedPriceId,
@@ -83,7 +91,7 @@ export async function POST(request: Request) {
         userEmail: email,
         plan,
       },
-      success_url: `${baseUrl}/results?success=true&subscription=active`,
+      success_url: `${baseUrl}/settings?subscription=active&tier=${plan}`,
       cancel_url: `${baseUrl}/settings?canceled=true`,
       subscription_data: {
         metadata: {
@@ -92,6 +100,10 @@ export async function POST(request: Request) {
         },
       },
     });
+
+    if (!session.url) {
+      return NextResponse.json({ error: "Stripe did not return a checkout URL" }, { status: 500 });
+    }
 
     return NextResponse.json({ url: session.url });
   } catch (error) {

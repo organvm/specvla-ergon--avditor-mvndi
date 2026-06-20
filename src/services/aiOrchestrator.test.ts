@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { orchestrateCosmicAudit, OrchestratedAuditRequest } from "./aiOrchestrator";
 import { generateText } from "ai";
 import * as evaluator from "./evaluator";
+import { scrapeWebsite } from "./scraper";
 
 vi.mock("ai", () => ({
   generateText: vi.fn(),
@@ -63,5 +64,16 @@ describe("aiOrchestrator service", () => {
     const result = await orchestrateCosmicAudit(mockReq);
     expect(result.iterations).toBe(2);
     expect(generateText).toHaveBeenCalledTimes(2);
+  });
+
+  it("uses an explicit entitlement scrape depth when provided", async () => {
+    vi.mocked(generateText).mockResolvedValue({
+      text: JSON.stringify({ markdownAudit: "Audit", scores: { communication: 90 } }),
+    } as Awaited<ReturnType<typeof generateText>>);
+    vi.mocked(evaluator.evaluateAudit).mockResolvedValue({ score: 90, passed: true, feedback: "Excellent" });
+
+    await orchestrateCosmicAudit({ ...mockReq, scrapeDepth: 5 });
+
+    expect(scrapeWebsite).toHaveBeenCalledWith("https://test.com", 5);
   });
 });

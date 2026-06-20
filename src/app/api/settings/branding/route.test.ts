@@ -30,6 +30,19 @@ describe("Branding API", () => {
       const data = await res.json();
       expect(data).toEqual(mockSub);
     });
+
+    it("does not expose saved branding for inactive subscriptions", async () => {
+      vi.mocked(db.getSubscription).mockResolvedValue({
+        plan: "pro",
+        status: "canceled",
+        customLogoUrl: "https://logo.com",
+      });
+
+      const res = await GET();
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data).toEqual({ plan: "pro", status: "canceled" });
+    });
   });
 
   describe("POST", () => {

@@ -19,6 +19,8 @@ export function getEnvStatus(): EnvStatus[] {
     { key: "GEMINI_API_KEY", label: "Gemini API Key (server)", configured: !!process.env.GEMINI_API_KEY, required: false, category: "ai" },
     { key: "STRIPE_SECRET_KEY", label: "Stripe Secret Key", configured: isRealValue(process.env.STRIPE_SECRET_KEY), required: false, category: "payments" },
     { key: "STRIPE_WEBHOOK_SECRET", label: "Stripe Webhook Secret", configured: isRealValue(process.env.STRIPE_WEBHOOK_SECRET), required: false, category: "payments" },
+    { key: "STRIPE_PRICE_PRO", label: "Stripe Pro Price", configured: isRealValue(process.env.STRIPE_PRICE_PRO), required: false, category: "payments" },
+    { key: "STRIPE_PRICE_PREMIUM", label: "Stripe Premium Price", configured: isRealValue(process.env.STRIPE_PRICE_PREMIUM), required: false, category: "payments" },
     { key: "RESEND_API_KEY", label: "Resend API Key", configured: isRealValue(process.env.RESEND_API_KEY), required: false, category: "email" },
     { key: "NEXT_PUBLIC_POSTHOG_KEY", label: "PostHog Key", configured: isRealValue(process.env.NEXT_PUBLIC_POSTHOG_KEY), required: false, category: "analytics" },
     { key: "NEXT_PUBLIC_SENTRY_DSN", label: "Sentry DSN", configured: !!process.env.NEXT_PUBLIC_SENTRY_DSN, required: false, category: "monitoring" },

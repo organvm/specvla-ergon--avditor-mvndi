@@ -9,6 +9,7 @@ import { auth } from "@/auth";
 import { createRateLimiter, getClientIP } from "@/lib/rate-limit";
 import { createAIModel, type AIProvider } from "@/services/aiModelFactory";
 import { AuditSchema } from "@/lib/schemas";
+import { getEffectivePlan, getEntitlements } from "@/lib/plans";
 
 const rateLimiter = createRateLimiter({ max: 5, windowMs: 60 * 60 * 1000 });
 
@@ -65,11 +66,16 @@ export async function POST(request: Request) {
     const { link, businessType, goals, teamId, language } = validation.data;
 
     const session = await auth();
-    const isPro = session?.user?.isPro || session?.user?.isAdmin;
+    const plan = getEffectivePlan(session?.user?.plan, {
+      isAdmin: session?.user?.isAdmin,
+      isPro: session?.user?.isPro,
+      isPremium: session?.user?.isPremium,
+    });
+    const { scrapeDepth } = getEntitlements(plan);
 
     // Submerged context gathering
     const [scrapedContent, , seoData] = await Promise.all([
-      scrapeWebsite(link, isPro ? 3 : 1),
+      scrapeWebsite(link, scrapeDepth),
       captureScreenshot(link).catch(() => null),
       getPageSpeedInsights(link).catch(() => null),
     ]);

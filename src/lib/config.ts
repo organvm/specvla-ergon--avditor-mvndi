@@ -21,6 +21,8 @@ const defaults: Record<string, string> = {
   authPassword: "cosmic", // allow-secret
   nextAuthSecret: "",
   baseUrl: "http://localhost:3000",
+  stripePricePro: "price_pro_placeholder",
+  stripePricePremium: "price_premium_placeholder",
   subscriptionPriceMonthly: "price_monthly_placeholder",
   subscriptionPriceYearly: "price_yearly_placeholder",
   enableSubscriptions: "false",
@@ -52,6 +54,8 @@ const envMap: Record<string, string> = {
   authPassword: "AUTH_PASSWORD", // allow-secret
   nextAuthSecret: "NEXTAUTH_SECRET",
   baseUrl: "NEXT_PUBLIC_BASE_URL",
+  stripePricePro: "STRIPE_PRICE_PRO",
+  stripePricePremium: "STRIPE_PRICE_PREMIUM",
   appName: "NEXT_PUBLIC_APP_NAME",
   webhookUrl: "WEBHOOK_URL",
   webhookSecret: "WEBHOOK_SECRET",

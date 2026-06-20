@@ -12,6 +12,47 @@ const stripe = new Stripe(stripeSecret, {
 
 const resend = new Resend(process.env.RESEND_API_KEY || "re_test_placeholder");
 
+function getCheckoutEmail(session: Stripe.Checkout.Session): string | undefined {
+  return session.metadata?.userEmail
+    || session.customer_email
+    || session.customer_details?.email
+    || undefined;
+}
+
+function getCheckoutSubscriptionStatus(session: Stripe.Checkout.Session): string {
+  const subscription = session.subscription;
+  if (subscription && typeof subscription === "object" && "status" in subscription) {
+    return subscription.status;
+  }
+  return "active";
+}
+
+function getSubscriptionPlan(subscription: Stripe.Subscription) {
+  if (subscription.metadata?.plan) {
+    return normalizePlanId(subscription.metadata.plan);
+  }
+
+  return resolvePlanFromPriceId(subscription.items?.data?.[0]?.price?.id);
+}
+
+async function getSubscriptionEmail(subscription: Stripe.Subscription): Promise<string | undefined> {
+  if (subscription.metadata?.userEmail) return subscription.metadata.userEmail;
+
+  const customer = subscription.customer;
+  if (customer && typeof customer === "object" && !("deleted" in customer && customer.deleted)) {
+    return customer.email || undefined;
+  }
+
+  if (stripeSecret !== "sk_test_placeholder" && typeof customer === "string") {
+    const retrieved = await stripe.customers.retrieve(customer);
+    if (!("deleted" in retrieved && retrieved.deleted)) {
+      return retrieved.email || undefined;
+    }
+  }
+
+  return undefined;
+}
+
 export async function POST(req: Request) {
   const body = await req.text();
   const signature = req.headers.get("stripe-signature") as string;
@@ -32,17 +73,18 @@ export async function POST(req: Request) {
 
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
-    const email = session.customer_details?.email;
+    const email = getCheckoutEmail(session);
     const pathNumber = session.metadata?.pathNumber;
     const isSubscription = session.mode === "subscription";
 
     if (email) {
-      try {
-        if (isSubscription) {
-          // Default to "pro" when no plan metadata is present so legacy
-          // single-tier checkouts still grant paid entitlements.
-          const plan = normalizePlanId(session.metadata?.plan || "pro");
-          await updateSubscription(email, plan, "active");
+      if (isSubscription) {
+        // Default to "pro" when no plan metadata is present so legacy
+        // single-tier checkouts still grant paid entitlements.
+        const plan = normalizePlanId(session.metadata?.plan || "pro");
+        await updateSubscription(email, plan, getCheckoutSubscriptionStatus(session));
+
+        try {
           await resend.emails.send({
             from: "Avditor Mvndi <hello@growthauditor.ai>",
             to: email,
@@ -55,7 +97,12 @@ export async function POST(req: Request) {
               <p>The Avditor Mvndi Team</p>
             `,
           });
-        } else {
+          console.log("Welcome email sent to", email);
+        } catch (emailError) {
+          console.error("Failed to send welcome email:", emailError);
+        }
+      } else {
+        try {
           await resend.emails.send({
             from: "Avditor Mvndi <hello@growthauditor.ai>",
             to: email,
@@ -68,35 +115,34 @@ export async function POST(req: Request) {
               <p>The Avditor Mvndi Team</p>
             `,
           });
+          console.log("Welcome email sent to", email);
+        } catch (emailError) {
+          console.error("Failed to send welcome email:", emailError);
         }
-        console.log("Welcome email sent to", email);
-      } catch (emailError) {
-        console.error("Failed to send welcome email:", emailError);
       }
     }
   }
 
   if (event.type === "customer.subscription.deleted") {
     const subscription = event.data.object as Stripe.Subscription;
-    const email = subscription.metadata?.userEmail;
+    const email = await getSubscriptionEmail(subscription);
 
     if (email) {
-      await updateSubscription(email, "basic", "inactive");
+      await updateSubscription(email, "free", "inactive");
       console.log("Subscription canceled for", email);
     }
   }
 
-  if (event.type === "customer.subscription.updated") {
+  if (
+    event.type === "customer.subscription.created"
+    || event.type === "customer.subscription.updated"
+  ) {
     const subscription = event.data.object as Stripe.Subscription;
-    const email = subscription.metadata?.userEmail;
+    const email = await getSubscriptionEmail(subscription);
 
     if (email) {
-      const status = subscription.status === "active" ? "active" : "inactive";
-      // Prefer the plan stamped in metadata at checkout; otherwise infer it
-      // from the active price ID on the subscription.
-      const plan = subscription.metadata?.plan
-        ? normalizePlanId(subscription.metadata.plan)
-        : resolvePlanFromPriceId(subscription.items?.data?.[0]?.price?.id);
+      const plan = getSubscriptionPlan(subscription);
+      const status = subscription.status;
       await updateSubscription(email, plan, status);
       console.log("Subscription updated for", email);
     }

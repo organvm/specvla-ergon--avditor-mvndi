@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const { mockGet, mockSet } = vi.hoisted(() => ({
+const { mockGet, mockSet, mockCreateSession } = vi.hoisted(() => ({
   mockGet: vi.fn(),
   mockSet: vi.fn(),
+  mockCreateSession: vi.fn().mockResolvedValue({ url: "https://stripe.com/session" }),
 }));
 
 vi.mock("stripe", () => {
@@ -10,7 +11,7 @@ vi.mock("stripe", () => {
     return {
       checkout: {
         sessions: {
-          create: vi.fn().mockResolvedValue({ url: "https://stripe.com/session" }),
+          create: mockCreateSession,
         },
       },
     };
@@ -25,7 +26,12 @@ vi.mock("lru-cache", () => {
   return { LRUCache: MockLRUCache };
 });
 
+vi.mock("@/auth", () => ({
+  auth: vi.fn(),
+}));
+
 import { POST } from "./route";
+import { auth } from "@/auth";
 
 function makeRequest(body: Record<string, unknown>, ip?: string): Request {
   return new Request("http://localhost:3000/api/subscription", {
@@ -42,10 +48,14 @@ describe("POST /api/subscription", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGet.mockReturnValue(0);
+    vi.mocked(auth).mockResolvedValue({
+      user: { email: "user@test.com", isAdmin: false },
+      expires: "",
+    });
   });
 
   it("returns mock URL with placeholder key for a tier", async () => {
-    const res = await POST(makeRequest({ email: "user@test.com", tier: "premium" }));
+    const res = await POST(makeRequest({ tier: "premium" }));
     const data = await res.json();
 
     expect(res.status).toBe(200);
@@ -53,23 +63,30 @@ describe("POST /api/subscription", () => {
   });
 
   it("accepts a legacy priceId for backward compatibility", async () => {
-    const res = await POST(makeRequest({ email: "user@test.com", priceId: "price_123" }));
+    vi.mocked(auth).mockResolvedValueOnce({
+      user: { email: "admin@test.com", isAdmin: true },
+      expires: "",
+    });
+
+    const res = await POST(makeRequest({ priceId: "price_123" }));
     const data = await res.json();
 
     expect(res.status).toBe(200);
     expect(data.url).toBe("https://checkout.stripe.com/pay/cs_test_mock123");
   });
 
-  it("returns 400 when email is missing", async () => {
+  it("returns 401 when the user is not signed in", async () => {
+    vi.mocked(auth).mockResolvedValueOnce(null);
+
     const res = await POST(makeRequest({ tier: "pro" }));
     const data = await res.json();
 
-    expect(res.status).toBe(400);
-    expect(data.error).toBe("Email is required");
+    expect(res.status).toBe(401);
+    expect(data.error).toBe("Authentication required");
   });
 
   it("returns 400 when neither tier nor priceId is given", async () => {
-    const res = await POST(makeRequest({ email: "user@test.com" }));
+    const res = await POST(makeRequest({}));
     const data = await res.json();
 
     expect(res.status).toBe(400);
@@ -77,7 +94,7 @@ describe("POST /api/subscription", () => {
   });
 
   it("returns 400 for a non-purchasable tier", async () => {
-    const res = await POST(makeRequest({ email: "user@test.com", tier: "free" }));
+    const res = await POST(makeRequest({ tier: "free" }));
     const data = await res.json();
 
     expect(res.status).toBe(400);
@@ -87,10 +104,18 @@ describe("POST /api/subscription", () => {
   it("returns 429 on rate limit", async () => {
     mockGet.mockReturnValue(10);
 
-    const res = await POST(makeRequest({ email: "user@test.com", tier: "pro" }, "1.2.3.4"));
+    const res = await POST(makeRequest({ tier: "pro" }, "1.2.3.4"));
     const data = await res.json();
 
     expect(res.status).toBe(429);
     expect(data.error).toContain("Rate limit exceeded");
+  });
+
+  it("rejects raw price IDs for non-admin callers", async () => {
+    const res = await POST(makeRequest({ priceId: "price_123" }));
+    const data = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(data.error).toBe("A tier is required");
   });
 });

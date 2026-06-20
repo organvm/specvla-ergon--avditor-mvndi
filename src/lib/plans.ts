@@ -164,6 +164,24 @@ export function isPremiumPlan(plan: string | null | undefined): boolean {
   return normalizePlanId(plan) === "premium";
 }
 
+export function isActiveSubscriptionStatus(
+  status: string | null | undefined,
+): boolean {
+  return status === "active" || status === "trialing";
+}
+
+export function getEffectivePlan(
+  plan: string | null | undefined,
+  flags: { isAdmin?: boolean; isPro?: boolean; isPremium?: boolean } = {},
+): PlanId {
+  if (flags.isAdmin || flags.isPremium) return "premium";
+
+  const normalized = normalizePlanId(plan);
+  if (flags.isPro && !isPaidPlan(normalized)) return "pro";
+
+  return normalized;
+}
+
 /** True when `plan` is at least `minimum` in the tier hierarchy. */
 export function planAtLeast(
   plan: string | null | undefined,

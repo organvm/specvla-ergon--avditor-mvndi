@@ -9,6 +9,7 @@ import {
   getTeamMembers,
 } from "@/lib/db";
 import { ScheduleSchema } from "@/lib/schemas";
+import { getEffectivePlan, getEntitlements } from "@/lib/plans";
 
 async function canAccessSchedule(id: string, userEmail: string) {
   const schedule = await getScheduledAuditById(id);
@@ -21,6 +22,16 @@ async function canAccessSchedule(id: string, userEmail: string) {
   return false;
 }
 
+function canUseScheduledAudits(session: Awaited<ReturnType<typeof auth>>): boolean {
+  if (!session?.user) return false;
+  const plan = getEffectivePlan(session.user.plan, {
+    isAdmin: session.user.isAdmin,
+    isPro: session.user.isPro,
+    isPremium: session.user.isPremium,
+  });
+  return getEntitlements(plan).scheduledAudits;
+}
+
 export async function GET() {
   try {
     const session = await auth();
@@ -28,7 +39,7 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (!session.user.isPro && !session.user.isAdmin) {
+    if (!canUseScheduledAudits(session)) {
       return NextResponse.json({ error: "Pro subscription required for scheduled audits" }, { status: 403 });
     }
 
@@ -47,7 +58,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (!session.user.isPro && !session.user.isAdmin) {
+    if (!canUseScheduledAudits(session)) {
       return NextResponse.json({ error: "Pro subscription required for scheduled audits" }, { status: 403 });
     }
 
@@ -83,7 +94,7 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (!session.user.isPro && !session.user.isAdmin) {
+    if (!canUseScheduledAudits(session)) {
       return NextResponse.json({ error: "Pro subscription required" }, { status: 403 });
     }
 
@@ -113,7 +124,7 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (!session.user.isPro && !session.user.isAdmin) {
+    if (!canUseScheduledAudits(session)) {
       return NextResponse.json({ error: "Pro subscription required" }, { status: 403 });
     }
 

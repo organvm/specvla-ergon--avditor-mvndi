@@ -151,6 +151,20 @@ describe("auth jwt callback", () => {
     expect(token.isPro).toBe(false);
   });
 
+  it("marks premium trialing subscriptions as premium paid access", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    mockGetSubscription.mockResolvedValue({ plan: "premium", status: "trialing" } as any);
+
+    const token = await capturedConfigHolder.value.callbacks.jwt({
+      token: {},
+      user: { email: "user@example.com" },
+    });
+
+    expect(token.plan).toBe("premium");
+    expect(token.isPro).toBe(true);
+    expect(token.isPremium).toBe(true);
+  });
+
   it("defaults isPro to false when the subscription lookup throws", async () => {
     mockGetSubscription.mockRejectedValue(new Error("db unavailable"));
 

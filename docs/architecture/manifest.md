@@ -11,7 +11,7 @@ Growth Auditor AI is a full-stack Next.js application designed for cosmic growth
 - **AI Integration:** Multi-provider support via Vercel AI SDK (Gemini, OpenAI, Claude).
 - **Scraper:** Cheerio-based recursive scraper with multi-page support for Pro users.
 - **Reporting:** Server-side PDF generation using Puppeteer.
-- **Payments:** Stripe integration for "Basic" and "Pro" subscription tiers.
+- **Payments:** Stripe integration for Basic, Pro, and Premium subscription tiers.
 
 ## 🛠️ Tech Stack & Services
 
@@ -37,13 +37,13 @@ Growth Auditor AI is a full-stack Next.js application designed for cosmic growth
 
 - **Data Isolation:** All audits and schedules are isolated by `userEmail` and `teamId`.
 - **RBAC:** Team members have roles (`owner`, `admin`, `member`) governing access to shared assets and invites.
-- **Subscription Gating:** Advanced features (Scheduled audits, 3-page analysis, branding) are gated via the `isPro` flag in the session JWT.
+- **Subscription Gating:** Advanced features are gated through the plan entitlement catalog in `src/lib/plans.ts`. Pro unlocks scheduled audits, 3-page analysis, teams, branding, vault access, and API access; Premium raises limits such as scrape depth and team seats.
 - **Credential Safety:** API keys for standard users are stored in the browser's `localStorage` and never touch our database. Pro features use server-side environment variables.
 
 ## 📈 Advanced Features
 
 ### 1. Recursive Scraping
-Pro users benefit from a deep-crawl of their digital assets. The scraper follows internal links (depth 1, max 3 pages) to provide a holistic view of the brand's manifestation.
+Paid users benefit from a deeper crawl of their digital assets. Pro audits can inspect up to 3 pages, while Premium audits can inspect up to 5 pages.
 
 ### 2. Cosmic Trend Analytics
 The history page visualizes the evolution of the four cosmic pillars:
@@ -53,7 +53,7 @@ The history page visualizes the evolution of the four cosmic pillars:
 - **Saturn (Structure):** Technical SEO and site performance.
 
 ### 3. White-Label Reporting
-Agencies can upload their custom logo in Settings. This logo is automatically injected into the server-side PDF generation process for professional client delivery.
+Paid agencies can upload their custom logo in Settings. This logo is injected into PDF exports only while the subscription has the white-label entitlement.
 
 ## ⚙️ Deployment & Crons
 
@@ -61,6 +61,8 @@ Agencies can upload their custom logo in Settings. This logo is automatically in
 Required for production:
 - `DATABASE_URL`: Supabase connection string.
 - `STRIPE_SECRET_KEY`: For processing payments.
+- `STRIPE_WEBHOOK_SECRET`: For verifying Stripe webhook events.
+- `STRIPE_PRICE_PRO` / `STRIPE_PRICE_PREMIUM`: Recurring Stripe price IDs for paid tiers.
 - `RESEND_API_KEY`: For notifications.
 - `CRON_SECRET`: To secure the daily audit trigger.
 

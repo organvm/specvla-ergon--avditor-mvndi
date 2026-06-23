@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { saveAudit, getScheduledAudits, updateScheduledAudit, getSubscription, getTeamMembers } from "@/lib/db";
 import { orchestrateCosmicAudit } from "@/services/aiOrchestrator";
-import { isPaidPlan } from "@/lib/plans";
+import { getEntitlements, isActiveSubscriptionStatus } from "@/lib/plans";
 import { Resend } from "resend";
 import crypto from "crypto";
 
@@ -13,15 +13,24 @@ async function generateMonthlyAudit(
   goals: string,
   userEmail: string,
   teamId?: string
-): Promise<void> {
+): Promise<boolean> {
   const apiKey = process.env.GEMINI_API_KEY; // allow-secret
   if (!apiKey) {
     console.error("GEMINI_API_KEY not set for monthly audit");
-    return;
+    return false;
   }
 
   const sub = await getSubscription(userEmail);
-  const isPro = sub?.status === "active" && isPaidPlan(sub?.plan);
+  if (!sub || !isActiveSubscriptionStatus(sub.status)) {
+    console.log("Skipping scheduled audit without active subscription for", userEmail);
+    return false;
+  }
+
+  const entitlements = getEntitlements(sub.plan);
+  if (!entitlements.scheduledAudits) {
+    console.log("Skipping scheduled audit without scheduled-audit entitlement for", userEmail);
+    return false;
+  }
 
   // Use the submerged orchestrator for consistency and quality
   const result = await orchestrateCosmicAudit({
@@ -30,7 +39,9 @@ async function generateMonthlyAudit(
     goals,
     provider: "gemini",
     auth: apiKey,
-    isPro,
+    isPro: entitlements.advancedAudit,
+    scrapeDepth: entitlements.scrapeDepth,
+    advancedAudit: entitlements.advancedAudit,
   });
 
   const auditId = crypto.randomUUID();
@@ -82,6 +93,8 @@ async function generateMonthlyAudit(
       console.error("Failed to send cron emails:", e);
     }
   }
+
+  return true;
 }
 
 function isDue(frequency: "weekly" | "monthly", lastRunAt?: string): boolean {
@@ -110,15 +123,17 @@ export async function GET(req: Request) {
         if (!isDue(schedule.frequency, schedule.lastRunAt)) continue;
 
         try {
-          await generateMonthlyAudit(
+          const generated = await generateMonthlyAudit(
             schedule.link,
             schedule.businessType,
             schedule.goals,
             schedule.userEmail,
             schedule.teamId
           );
-          await updateScheduledAudit(schedule.id, { lastRunAt: new Date().toISOString() });
-          processed++;
+          if (generated) {
+            await updateScheduledAudit(schedule.id, { lastRunAt: new Date().toISOString() });
+            processed++;
+          }
         } catch (e) {
           console.error(`Failed scheduled audit ${schedule.id}:`, e);
         }

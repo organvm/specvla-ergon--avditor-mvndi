@@ -13,6 +13,8 @@ export interface OrchestratedAuditRequest {
   provider: AIProvider;
   auth: string;
   isPro: boolean;
+  scrapeDepth?: number;
+  advancedAudit?: boolean;
   language?: string;
 }
 
@@ -33,10 +35,12 @@ export async function orchestrateCosmicAudit(
 ): Promise<OrchestratedAuditResponse> {
   const credential = data.auth; // allow-secret
   const isPro = data.isPro;
+  const scrapeDepth = data.scrapeDepth ?? (isPro ? 3 : 1);
+  const advancedAudit = data.advancedAudit ?? isPro;
 
   // 1. Submerged Context Gathering (Parallel)
   const [scrapedContent, screenshotBase64, seoData] = await Promise.all([
-    scrapeWebsite(data.link, isPro ? 3 : 1),
+    scrapeWebsite(data.link, scrapeDepth),
     captureScreenshot(data.link).catch(() => null),
     getPageSpeedInsights(data.link).catch(() => null),
   ]);
@@ -60,7 +64,7 @@ export async function orchestrateCosmicAudit(
   
   // 2.5 PROPRIETARY SCRUBBER
   // If user is not Pro, we scrub technical details and replace with "Alluded Depth"
-  if (!isPro) {
+  if (!advancedAudit) {
     parsedResult.markdownAudit = scrubProprietaryInfo(parsedResult.markdownAudit);
   }
 
@@ -81,7 +85,7 @@ export async function orchestrateCosmicAudit(
     });
 
     parsedResult = parseAIResponse(retryResult.text);
-    if (!isPro) {
+    if (!advancedAudit) {
       parsedResult.markdownAudit = scrubProprietaryInfo(parsedResult.markdownAudit);
     }
     iterations++;

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { addTeamMember, getTeamMembers } from "@/lib/db";
+import { getEffectivePlan, getEntitlements } from "@/lib/plans";
 
 export async function GET(
   request: Request,
@@ -47,6 +48,16 @@ export async function POST(
     const isOwnerOrAdmin = members.some(m => m.email === session.user?.email && (m.role === "owner" || m.role === "admin"));
     if (!isOwnerOrAdmin) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const plan = getEffectivePlan(session.user.plan, {
+      isAdmin: session.user.isAdmin,
+      isPro: session.user.isPro,
+      isPremium: session.user.isPremium,
+    });
+    const { teamSeats } = getEntitlements(plan);
+    if (!session.user.isAdmin && members.length >= teamSeats) {
+      return NextResponse.json({ error: `Team seat limit reached for your current plan (${teamSeats})` }, { status: 403 });
     }
 
     await addTeamMember(id, email, role);

@@ -5,7 +5,7 @@ import { getCosmicAuditPrompt } from "@/services/promptTemplates";
 import { getPageSpeedInsights } from "@/services/pagespeed";
 import { createAIModel } from "@/services/aiModelFactory";
 import { generateText } from "ai";
-import { getEntitlements, isPaidPlan } from "@/lib/plans";
+import { getEntitlements, isActiveSubscriptionStatus } from "@/lib/plans";
 
 export async function POST(request: Request) {
   try {
@@ -22,7 +22,7 @@ export async function POST(request: Request) {
     }
 
     const sub = await getSubscription(userEmail);
-    if (!sub || sub.status !== "active") {
+    if (!sub || !isActiveSubscriptionStatus(sub.status)) {
       return NextResponse.json({ error: "Active subscription required for API access" }, { status: 403 });
     }
 
@@ -31,11 +31,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    // Public API access requires a paid tier; deeper crawls scale with it.
-    if (!isPaidPlan(sub.plan)) {
+    // Public API access is a paid entitlement; deeper crawls scale with the tier.
+    const entitlements = getEntitlements(sub.plan);
+    if (!entitlements.apiAccess) {
       return NextResponse.json({ error: "A paid plan is required for API access" }, { status: 403 });
     }
-    const { scrapeDepth } = getEntitlements(sub.plan);
+    const { scrapeDepth } = entitlements;
     const apiKey = process.env.GEMINI_API_KEY; // allow-secret
 
     const [scrapedContent, seoData] = await Promise.all([

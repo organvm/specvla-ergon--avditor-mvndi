@@ -17,7 +17,7 @@ describe("Teams API", () => {
 
   beforeEach(() => {
     vi.resetAllMocks();
-    (auth as unknown as Mock).mockResolvedValue({ user: { email: mockEmail } });
+    (auth as unknown as Mock).mockResolvedValue({ user: { email: mockEmail, plan: "pro", isPro: true } });
   });
 
   describe("GET", () => {
@@ -47,6 +47,19 @@ describe("Teams API", () => {
       const data = await res.json();
       expect(data.name).toBe("New Team");
       expect(db.createTeam).toHaveBeenCalledWith("New Team", mockEmail);
+    });
+
+    it("returns 403 for free users", async () => {
+      (auth as unknown as Mock).mockResolvedValue({ user: { email: mockEmail, plan: "free", isPro: false } });
+
+      const req = new Request("http://localhost/api/teams", {
+        method: "POST",
+        body: JSON.stringify({ name: "Free Team" }),
+      });
+
+      const res = await POST(req);
+      expect(res.status).toBe(403);
+      expect(db.createTeam).not.toHaveBeenCalled();
     });
   });
 });

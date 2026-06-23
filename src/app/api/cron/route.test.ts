@@ -179,6 +179,8 @@ describe("GET /api/cron", () => {
         businessType: "SaaS",
         goals: "grow",
         provider: "gemini",
+        scrapeDepth: 3,
+        advancedAudit: true,
       })
     );
     expect(mockSaveAudit).toHaveBeenCalledOnce();
@@ -188,7 +190,7 @@ describe("GET /api/cron", () => {
     );
   });
 
-  it("processes a weekly schedule that is due", async () => {
+  it("skips a due weekly schedule without an active subscription", async () => {
     // lastRunAt was 8 days ago — weekly schedule is due
     const oldRunAt = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString();
     mockGetScheduledAudits.mockResolvedValue([
@@ -222,10 +224,11 @@ describe("GET /api/cron", () => {
 
     expect(res.status).toBe(200);
     expect(data.success).toBe(true);
-    expect(data.processedSchedules).toBe(1);
+    expect(data.processedSchedules).toBe(0);
+    expect(mockOrchestrate).not.toHaveBeenCalled();
   });
 
-  it("processes a schedule that has never run (no lastRunAt)", async () => {
+  it("skips a schedule that has never run when the subscription is missing", async () => {
     mockGetScheduledAudits.mockResolvedValue([
       {
         id: "sched-new",
@@ -257,7 +260,7 @@ describe("GET /api/cron", () => {
 
     expect(res.status).toBe(200);
     expect(data.success).toBe(true);
-    expect(data.processedSchedules).toBe(1);
-    expect(mockOrchestrate).toHaveBeenCalledOnce();
+    expect(data.processedSchedules).toBe(0);
+    expect(mockOrchestrate).not.toHaveBeenCalled();
   });
 });

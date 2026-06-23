@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { POST } from "./route";
+import { auth } from "@/auth";
+import { scrapeWebsite } from "@/services/scraper";
 
 const mockStreamText = vi.fn().mockReturnValue({
   toTextStreamResponse: vi.fn().mockReturnValue(new Response(new ReadableStream())),
@@ -97,5 +99,35 @@ describe("API Route /api/audit/stream", () => {
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
     );
     expect(mockStreamText).toHaveBeenCalled();
+  });
+
+  it("uses premium scrape depth for premium sessions", async () => {
+    vi.mocked(auth).mockResolvedValueOnce({
+      user: {
+        email: "premium@example.com",
+        plan: "premium",
+        isPremium: true,
+        isPro: true,
+      },
+      expires: "",
+    });
+
+    const request = new Request("http://localhost/api/audit/stream", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer valid-key", // allow-secret
+        "Content-Type": "application/json",
+        "x-forwarded-for": "192.168.2.50",
+      },
+      body: JSON.stringify({
+        link: "https://test.com",
+        businessType: "SaaS",
+        goals: "Scale revenue",
+      }),
+    });
+
+    const response = await POST(request);
+    expect(response.status).toBe(200);
+    expect(scrapeWebsite).toHaveBeenCalledWith("https://test.com", 5);
   });
 });

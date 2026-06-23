@@ -60,6 +60,14 @@ describe("POST /api/checkout", () => {
     expect(data.error).toBe("Email is required");
   });
 
+  it("returns 400 for an invalid checkout path", async () => {
+    const res = await POST(makeRequest({ email: "user@test.com", pathNumber: 99, title: "Plan" }));
+    const data = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(data.error).toBe("Invalid checkout path");
+  });
+
   it("returns 429 when rate limited", async () => {
     mockGet.mockReturnValue(10);
 

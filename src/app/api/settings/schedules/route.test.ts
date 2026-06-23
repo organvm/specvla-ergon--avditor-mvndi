@@ -31,6 +31,13 @@ describe("Schedules API Route", () => {
       expect(res.status).toBe(401);
     });
 
+    it("returns 403 for free users", async () => {
+      (auth as unknown as Mock).mockResolvedValue({ user: { email: mockEmail, plan: "free", isPro: false } });
+
+      const res = await GET();
+      expect(res.status).toBe(403);
+    });
+
     it("returns schedules for the user", async () => {
       const mockSchedules = [{ id: "1", userEmail: mockEmail, link: "https://test.com", businessType: "SaaS", goals: "Growth", frequency: "monthly" as const, enabled: true }];
       vi.mocked(db.getScheduledAudits).mockResolvedValue(mockSchedules);

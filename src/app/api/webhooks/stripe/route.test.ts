@@ -25,7 +25,12 @@ vi.mock("resend", () => {
   };
 });
 
+vi.mock("@/lib/db", () => ({
+  updateSubscription: vi.fn(),
+}));
+
 import { POST } from "./route";
+import { updateSubscription } from "@/lib/db";
 
 function makeWebhookRequest(event: Record<string, unknown>): Request {
   return new Request("http://localhost:3000/api/webhooks/stripe", {
@@ -93,7 +98,7 @@ describe("POST /api/webhooks/stripe", () => {
         object: {
           mode: "subscription",
           customer_details: { email: "subscriber@test.com" },
-          metadata: { pathNumber: "1" },
+          metadata: { pathNumber: "1", plan: "premium" },
         },
       },
     };
@@ -103,6 +108,7 @@ describe("POST /api/webhooks/stripe", () => {
 
     expect(res.status).toBe(200);
     expect(data.received).toBe(true);
+    expect(updateSubscription).toHaveBeenCalledWith("subscriber@test.com", "premium", "active");
     expect(mockSend).toHaveBeenCalledOnce();
     expect(mockSend).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -129,6 +135,7 @@ describe("POST /api/webhooks/stripe", () => {
 
     expect(res.status).toBe(200);
     expect(data.received).toBe(true);
+    expect(updateSubscription).toHaveBeenCalledWith("canceled@test.com", "free", "inactive");
     expect(consoleSpy).toHaveBeenCalledWith(
       "Subscription canceled for",
       "canceled@test.com"
@@ -145,6 +152,8 @@ describe("POST /api/webhooks/stripe", () => {
       data: {
         object: {
           metadata: { userEmail: "updated@test.com" },
+          status: "trialing",
+          items: { data: [{ price: { id: "price_unknown" } }] },
         },
       },
     };
@@ -154,6 +163,7 @@ describe("POST /api/webhooks/stripe", () => {
 
     expect(res.status).toBe(200);
     expect(data.received).toBe(true);
+    expect(updateSubscription).toHaveBeenCalledWith("updated@test.com", "pro", "trialing");
     expect(consoleSpy).toHaveBeenCalledWith(
       "Subscription updated for",
       "updated@test.com"

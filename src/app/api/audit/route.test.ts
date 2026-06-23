@@ -55,6 +55,8 @@ vi.mock('@/services/aiOrchestrator', () => ({
 }));
 
 import { POST } from './route';
+import { auth } from '@/auth';
+import { orchestrateCosmicAudit } from '@/services/aiOrchestrator';
 
 describe('API Route /api/audit', () => {
   beforeEach(() => {
@@ -141,5 +143,41 @@ describe('API Route /api/audit', () => {
     expect(response.status).toBe(200);
     const data = await response.json();
     expect(data.audit).toBe('Mocked audit response');
+  });
+
+  it('passes premium entitlements into the audit orchestrator', async () => {
+    vi.mocked(auth).mockResolvedValueOnce({
+      user: {
+        email: 'premium@example.com',
+        plan: 'premium',
+        isPremium: true,
+        isPro: true,
+      },
+      expires: '',
+    });
+
+    const request = new Request('http://localhost/api/audit', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer valid-key', // allow-secret
+        'Content-Type': 'application/json',
+        'x-forwarded-for': '192.168.1.101',
+      },
+      body: JSON.stringify({
+        link: 'https://test.com',
+        businessType: 'SaaS',
+        goals: 'Increase conversion',
+      }),
+    });
+
+    const response = await POST(request);
+    expect(response.status).toBe(200);
+    expect(orchestrateCosmicAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        advancedAudit: true,
+        isPro: true,
+        scrapeDepth: 5,
+      })
+    );
   });
 });

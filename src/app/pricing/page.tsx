@@ -23,7 +23,7 @@ export default function PricingPage() {
       const res = await fetch("/api/subscription", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: session.user?.email, tier }),
+        body: JSON.stringify({ tier }),
       });
 
       const data = await res.json();

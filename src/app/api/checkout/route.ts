@@ -12,6 +12,12 @@ const rateLimit = new LRUCache({
   ttl: 1000 * 60 * 60,
 });
 
+const CHECKOUT_PATHS: Record<number, { unitAmount: number; label: string }> = {
+  1: { unitAmount: 150000, label: "The Builder" },
+  2: { unitAmount: 29700, label: "The Vault" },
+  3: { unitAmount: 50000, label: "The Oracle" },
+};
+
 export async function POST(request: Request) {
   try {
     const ip = request.headers.get("x-forwarded-for") || "127.0.0.1";
@@ -28,10 +34,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Email is required" }, { status: 400 });
     }
 
-    let unitAmount = 0;
-    if (pathNumber === 1) unitAmount = 150000;
-    else if (pathNumber === 2) unitAmount = 29700;
-    else if (pathNumber === 3) unitAmount = 50000;
+    const pathConfig = CHECKOUT_PATHS[Number(pathNumber)];
+    if (!pathConfig) {
+      return NextResponse.json({ error: "Invalid checkout path" }, { status: 400 });
+    }
+    const checkoutTitle = typeof title === "string" && title.trim() ? title.trim() : pathConfig.label;
 
     if (stripeSecret === "sk_test_placeholder") {
       console.warn("Using placeholder Stripe key. Simulating checkout URL.");
@@ -48,10 +55,10 @@ export async function POST(request: Request) {
           price_data: {
             currency: "usd",
             product_data: {
-              name: `Avditor Mvndi - ${title}`,
-              description: `Cosmic Growth Path ${pathNumber}`,
+              name: `Avditor Mvndi - ${checkoutTitle}`,
+              description: `Cosmic Growth Path ${pathNumber}: ${pathConfig.label}`,
             },
-            unit_amount: unitAmount,
+            unit_amount: pathConfig.unitAmount,
           },
           quantity: 1,
         },
@@ -61,6 +68,7 @@ export async function POST(request: Request) {
       cancel_url: `${baseUrl}/results?canceled=true`,
       metadata: {
         pathNumber: pathNumber.toString(),
+        userEmail: email,
       },
     });
 

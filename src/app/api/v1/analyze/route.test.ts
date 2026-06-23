@@ -76,5 +76,24 @@ describe("Public API /api/v1/analyze", () => {
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(data.markdownAudit).toBe("Audit text");
+    expect(scraper.scrapeWebsite).toHaveBeenCalledWith("http://test.com", 3);
+  });
+
+  it("uses premium depth for trialing premium subscriptions", async () => {
+    vi.mocked(db.getUserByToken).mockResolvedValue("test@example.com");
+    vi.mocked(db.getSubscription).mockResolvedValue({ plan: "premium", status: "trialing" });
+    vi.mocked(generateText).mockResolvedValue({
+      text: JSON.stringify({ markdownAudit: "Audit text", scores: { communication: 80 } }),
+    } as Awaited<ReturnType<typeof generateText>>);
+
+    const req = new Request("http://localhost/api/v1/analyze", {
+      method: "POST",
+      headers: { "Authorization": "Bearer valid-token" },
+      body: JSON.stringify({ link: "http://test.com", businessType: "test", goals: "test goals" }),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    expect(scraper.scrapeWebsite).toHaveBeenCalledWith("http://test.com", 5);
   });
 });

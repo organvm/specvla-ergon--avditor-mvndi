@@ -44,7 +44,7 @@ Visit `http://localhost:3000` to begin your first manifestation.
 - **The Growth Vault:** Gated library of proprietary strategies and templates.
 - **Agency Branding:** White-label PDF reports with custom logos.
 - **Collaborative Teams:** Shared audits and member management for collectives.
-- **Public API:** Programmatic analysis via Personal Access Tokens (PATs).
+- **Public API:** Programmatic analysis via Personal Access Tokens (PATs). [View API Reference](docs/api-reference.md)
 - **Edge Performance:** Core engine routes optimized for global low-latency.
 
 ---
